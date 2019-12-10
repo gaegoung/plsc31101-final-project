@@ -1,0 +1,363 @@
+---
+title: "Final Project"
+author: "Gaegoung Kim"
+date: "Fall 2019"
+output: pdf_document
+---
+
+## Final Project
+
+Load packages
+```{r}
+## load required packages
+library(rvest)
+library(stringr)
+library(purrr)
+library(knitr)
+library(tm)
+library(tidyverse)
+library(ggplot2)
+library(lubridate)
+library(textdata)
+library(tidytext)
+library(cowplot)
+```
+
+Part I. Web Scraping
+
+1. Create function for scraping information from document (given from previous assignment).
+
+```{r}
+scrape_docs <- function(URL){
+  doc <- read_html(URL)
+
+  speaker <- html_nodes(doc, ".diet-title a") %>% 
+    html_text()
+  
+  date <- html_nodes(doc, ".date-display-single") %>%
+    html_text() %>%
+    mdy()
+  
+  title <- html_nodes(doc, "h1") %>%
+    html_text()
+  
+  text <- html_nodes(doc, "div.field-docs-content") %>%
+    html_text()
+  
+  all_info <- list(speaker = speaker, date = date, title = title, text = text)
+  
+  return(all_info)
+}
+```
+
+2. Scrape speeches by Hilary Clinton.
+
+```{r}
+## extract URLs for documents for Hilary Clinton on page 1
+hilary_speech_urls <- function(url) {
+  doc_hilary <- read_html(url)
+  links_hilary <- doc_hilary %>% 
+    html_nodes("td a") %>% 
+    html_attr("href")
+  speech_links <- paste0("https://www.presidency.ucsb.edu", links_hilary)
+  return(speech_links)
+}
+
+hilary_speech_urls("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200317/all/63")
+
+## loop through pages
+hilary_all_speech_urls <- lapply(0:3, function(i) {
+  url <- paste0("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200317/all/63&page=", i)
+	hilary_speech_urls(url)
+}) %>% unlist
+
+## scrape necessary information from document and organize it into dataframe
+hilary_speech_df <- hilary_all_speech_urls %>%
+  map_df(scrape_docs)
+
+## test outcome
+head(hilary_speech_df)
+dim(hilary_speech_df)
+```
+
+3. Scrape speeches by Bernie Sanders.
+
+```{r}
+## extract URLs for documents for Bernie Sanders on page 1
+bernie_speech_urls <- function(url) {
+  doc_bernie <- read_html(url)
+  links_bernie <- doc_bernie %>% 
+    html_nodes("td a") %>% 
+    html_attr("href")
+  speech_links <- paste0("https://www.presidency.ucsb.edu", links_bernie)
+  return(speech_links)
+}
+
+bernie_speech_urls("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200354/all/63")
+
+## loop through pages
+bernie_all_speech_urls <- lapply(0:1, function(i) {
+  url <- paste0("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200354/all/63&page=", i)
+	bernie_speech_urls(url)
+}) %>% unlist
+
+## scrape necessary information from document and organize it into dataframe
+bernie_speech_2016 <- bernie_all_speech_urls %>%
+  map_df(scrape_docs)
+
+## test outcome
+head(bernie_speech_2016)
+dim(bernie_speech_2016)
+```
+
+4. Scrape speeches by Donald Trump.
+
+```{r}
+## extract URLs for documents for Donald Trump on page 1
+donald_speech_urls <- function(url) {
+  doc_donald <- read_html(url)
+  links_donald <- doc_donald %>% 
+    html_nodes("td a") %>% 
+    html_attr("href")
+  speech_links <- paste0("https://www.presidency.ucsb.edu", links_donald)
+  return(speech_links)
+}
+
+donald_speech_urls("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200301/all/63")
+
+## loop through pages
+donald_all_speech_urls <- lapply(0:1, function(i) {
+  url <- paste0("https://www.presidency.ucsb.edu/documents/presidential-documents-archive-guidebook/documents-related-to-presidential-elections/2016/report/200301/all/63&page=", i)
+	donald_speech_urls(url)
+}) %>% unlist
+
+## scrape necessary information from document and organize it into dataframe
+donald_speech_df <- donald_all_speech_urls %>%
+  map_df(scrape_docs)
+
+## test outcome
+head(donald_speech_df)
+dim(donald_speech_df)
+```
+
+5. Subset dataframe to only include years 2015 and 2016 for Hilary Clinton and Donald Trump. This process is not required for Bernie Sanders. He ran for presidential election only in 2016.
+
+```{r}
+hilary_speech_2016 <- hilary_speech_df[108:196, ]
+donald_speech_2016 <- donald_speech_df[1:75, ]
+```
+
+6. Extract paragraphs containing the word "trade".
+
+```{r}
+## Extract paragraph containing the word "trade" from Hilary Clinton's speech
+hilary_trade_speech <- hilary_speech_2016$text
+hilary_trade_speech[nchar(hilary_trade_speech)==0]="\n"
+hilary_trade_speech = strsplit(paste(hilary_trade_speech,collapse=""),"\n")[[1]]
+hilary_all_speech_trade <- hilary_trade_speech[grepl("trade",hilary_trade_speech,ignore.case = T)]
+
+## Extract paragraph containing the word "trade" from Bernie Sander's speech
+bernie_trade_speech <- bernie_speech_2016$text
+bernie_trade_speech[nchar(bernie_trade_speech)==0]="\n"
+bernie_trade_speech = strsplit(paste(bernie_trade_speech,collapse=""),"\n")[[1]]
+bernie_all_speech_trade <- bernie_trade_speech[grepl("trade",bernie_trade_speech,ignore.case = T)]
+
+## Extract paragraph containing the word "trade" from Donald Trump's speech
+donald_trade_speech <- donald_speech_2016$text
+donald_trade_speech[nchar(donald_trade_speech)==0]="\n"
+donald_trade_speech = strsplit(paste(donald_trade_speech,collapse=""),"\n")[[1]]
+donald_all_speech_trade <- donald_trade_speech[grepl("trade",donald_trade_speech,ignore.case = T)]
+```
+
+Part II. Sentiment Analysis
+
+1. load sentiment dictionaries.
+
+```{r}
+## load dictionaries
+sent_bing <- get_sentiments("bing")
+sent_afinn <- get_sentiments("afinn")
+sent_loughran <- get_sentiments("loughran")
+
+## add column to sentiment dictionary called score
+sent_bing$score <- ifelse(sent_bing$sentiment == "positive", 1, -1)
+sent_loughran$score <- ifelse(sent_loughran$sentiment == "positive", 1, -1)
+```
+
+2. Write function for preprocessing text and getting sentiment scores.
+
+```{r}
+## write function for preprocessing text and creating DTM and putting it into dataframe
+words <- function(all_speech_trade) {
+  doc <- Corpus(VectorSource(all_speech_trade))
+  dtm_pre <- DocumentTermMatrix(doc,
+                                 control = list(stopwords = TRUE,
+                                                tolower = TRUE,
+                                                removeNumbers = TRUE,
+                                                removePunctuation = TRUE))
+  dtm <- as.data.frame(as.matrix(dtm_pre))
+  words_dt = data.frame(word = colnames(dtm))
+  return(words_dt)
+}
+
+## write function for getting sentiment scores using dictionary "bing"
+words_bing <- function(words) {
+  bing = merge(words, sent_bing, all.x = T)
+  bing$score[is.na(bing$score)] <- 0
+  return(bing)
+}
+
+## write funcion for getting sentiment scores using dictionary "afinn"
+words_afinn <- function(words) {
+  afinn = merge(words, sent_afinn, all.x = T)
+  afinn$value[is.na(afinn$value)] <- 0
+  return(afinn)
+}
+
+## write funcion for getting sentiment scores using dictionary "loughran"
+words_loughran <- function(words) {
+  loughran = merge(words, sent_loughran, all.x = T)
+  loughran$score[is.na(loughran$score)] <- 0
+  return(loughran)
+}
+```
+
+3. Get sentiment scores for Hilary Clinton.
+
+```{r}
+## preprocess and create DTM, get all words in dtm_hilary and put it in a dataframe using the above function
+words_hilary <- words(hilary_all_speech_trade)
+
+## get sentiment scores using dictionary "bing"
+words_hilary_bing <- words_bing(words_hilary)
+
+## get sentiment scores using dictionary "afinn"
+words_hilary_afinn <- words_afinn(words_hilary)
+
+## get sentiment scores using dictionary "loughran"
+words_hilary_loughran <- words_loughran(words_hilary)
+
+```
+
+4. Get sentiment scores for Bernie Sanders.
+
+```{r}
+## preprocess and create DTM
+words_bernie <- words(bernie_all_speech_trade)
+
+## get their sentiment scores using dictionary "bing"
+words_bernie_bing <- words_bing(words_bernie)
+
+## get their sentiment scores using dictionary "afinn"
+words_bernie_afinn <- words_afinn(words_bernie)
+
+## get their sentiment scores using dictionary "loughran"
+words_bernie_loughran <- words_loughran(words_bernie)
+```
+
+5. Get sentiment scores for Donald Trump.
+
+```{r}
+## preprocess and create DTM
+words_donald <- words(donald_all_speech_trade)
+
+## get their sentiment scores using dictionary "bing"
+words_donald_bing <- words_bing(words_donald)
+
+## get their sentiment scores using dictionary "afinn"
+words_donald_afinn <- words_afinn(words_donald)
+
+## get their sentiment scores using dictionary "loughran"
+words_donald_loughran <- words_loughran(words_donald)
+```
+
+6. Organize mean sentiment scores by dictionary into dataframe.
+
+```{r}
+## create dataframe of mean sentiment scores using dictionary "bing"
+bing_df <- data.frame("President_Candidates" = c("Hilary Clinton", "Bernie Sanders", "Donald Trump"), 
+                      "Mean_Sentiment_Scores" = c(mean(words_hilary_bing$score), mean(words_bernie_bing$score), mean(words_donald_bing$score)))
+
+## create dataframe of mean sentiment scores using dictionary "afinn"
+afinn_df <- data.frame("President_Candidates" = c("Hilary Clinton", "Bernie Sanders", "Donald Trump"), 
+                      "Mean_Sentiment_Scores" = c(mean(words_hilary_afinn$value), mean(words_bernie_afinn$value), mean(words_donald_afinn$value)))
+
+## create dataframe of mean sentiment scores using dictionary "loughran"
+loughran_df <- data.frame("President_Candidates" = c("Hilary Clinton", "Bernie Sanders", "Donald Trump"), 
+                      "Mean_Sentiment_Scores" = c(mean(words_hilary_loughran$score), mean(words_bernie_loughran$score), mean(words_donald_loughran$score)))
+```
+
+Part III. Visualization
+
+1. Create bar plot of sentiment scores according to dictionary.
+
+```{r}
+## plot sentiment scores by president (using dictionary "bing")
+bar_bing <- ggplot(data = bing_df,
+                   aes(x = President_Candidates, y = Mean_Sentiment_Scores)) + 
+  geom_bar(stat = "identity", fill = c("#669999", "#336999", "#CC9966"), colour = "Black") + 
+  ylim(-0.08, 0.055) +
+  labs(title = "Mean Trade Sentiment Scores 2016 (Bing)", 
+       x = "President Candidates 2016",
+       y = "Mean Sentiment Score") + 
+  theme(axis.title=element_text(size=9), plot.title = element_text(size=11, hjust=0.5)) +
+  geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1)
+
+## plot sentiment scores by president (using dictionary "afinn")
+bar_afinn <- ggplot(data = afinn_df, 
+                    aes(x = President_Candidates, y = Mean_Sentiment_Scores)) +
+  geom_bar(stat = "identity", fill = c("#669999", "#336999", "#CC9966"), colour = "Black") +
+    ylim(-0.08, 0.055) +
+  labs(title = "Mean Trade Sentiment Scores 2016 (Afinn)",
+       x = "President Candidates 2016",
+       y = "Mean Sentiment Score") +
+  theme(axis.title=element_text(size=9), plot.title = element_text(size=11, hjust=0.5)) +
+  geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1)
+
+## plot sentiment scores by president (using dictionary "loughran")
+bar_loughran <- ggplot(data = loughran_df, 
+                       aes(x = President_Candidates, y = Mean_Sentiment_Scores)) +
+  geom_bar(stat = "identity", fill = c("#669999", "#336999", "#CC9966"), colour = "Black") +
+    ylim(-0.08, 0.055) + 
+  labs(title = "Mean Trade Sentiment Scores 2016 (Loughran)",
+       x = "President Candidates 2016",
+       y = "Mean Sentiment Score") +
+  theme(axis.title=element_text(size=9), plot.title = element_text(size=11, hjust=0.5)) +
+  geom_hline(yintercept=0, linetype="dashed", color = "red", size = 1)
+
+## place graphs side by side
+cowplot::plot_grid(bar_bing, bar_afinn, bar_loughran)
+```
+
+2. Sentiment dictionary "afinn" uses scale of -3 to 3 to rank words by sentiment. Assign "strongly negative", "negative", "weakly negative", "neutral", "weakly positive", "positive", "strongly positive" to each of the each of the sentiment scores we got for each presidential candidates using dictionary "afinn".
+
+```{r}
+words_hilary_afinn$sentiment <- ifelse(words_hilary_afinn$value == -3, "strongly negative", ifelse(words_hilary_afinn$value == -2, "negative", ifelse(words_hilary_afinn$value == -1, "weakly negative", ifelse(words_hilary_afinn$value == 0, "neutral", ifelse(words_hilary_afinn$value == 1, "weakly positive", ifelse(words_hilary_afinn$value == 2, "positive", "strongly positive"))))))
+
+words_bernie_afinn$sentiment <- ifelse(words_bernie_afinn$value == -3, "strongly negative", ifelse(words_bernie_afinn$value == -2, "negative", ifelse(words_bernie_afinn$value == -1, "weakly negative", ifelse(words_bernie_afinn$value == 0, "neutral", ifelse(words_bernie_afinn$value == 1, "weakly positive", ifelse(words_bernie_afinn$value == 2, "positive", "strongly positive"))))))
+
+words_donald_afinn$sentiment <- ifelse(words_donald_afinn$value == -3, "strongly negative", ifelse(words_donald_afinn$value == -2, "negative", ifelse(words_donald_afinn$value == -1, "weakly negative", ifelse(words_donald_afinn$value == 0, "neutral", ifelse(words_donald_afinn$value == 1, "weakly positive", ifelse(words_donald_afinn$value == 2, "positive", "strongly positive"))))))
+```
+
+3. To look at sentiment in all speeches on trade made by Hilary Clinton, Bernie Sanders and Donald Trump, extract and combine data on sentiment and create bar plot.
+
+```{r}
+## extract sentiment column we created above
+hilary_sentiment_df <- words_hilary_afinn[, 3, drop = FALSE]
+bernie_sentiment_df <- words_bernie_afinn[, 3, drop = FALSE]
+donald_sentiment_df <- words_donald_afinn[, 3, drop = FALSE]
+
+## combine sentiment column for each president into one vector
+all_words_2016 <- c(words_hilary_afinn$sentiment, words_bernie_afinn$sentiment, words_donald_afinn$sentiment)
+
+## bar plot sentiment
+ggplot() + 
+  aes(all_words_2016) +
+  geom_bar(fill = c("orangered4", "orangered2", "orangered1", "orange4", "orange3", "orange2", "orange"), colour = "Black") +
+  geom_text(stat='count', aes(label=..count..), vjust=-1) +
+  ylim(0, 3000) +
+  scale_x_discrete(limits = c("strongly negative", "negative", "weakly negative", "neutral", "weakly positive", "positive", "strongly positive")) +
+  labs(title = "Trade Sentiment in 2016 Presidential Campaign Speeches", x = "sentiment", y = "count") +
+  theme(axis.title=element_text(size=10), plot.title = element_text(size=11, hjust=0.5))
+```
+
