@@ -1,5 +1,3 @@
-This is a template you can use for your final projects (as well other projects where you need to post replication code.) Fill in each section with information on your own project.
-
 ## Short Description
 
 My final project analyzes the sentiment on the issue of trade in 2016 presidential campaign speeches. I scrape presidential campaign speeches by 3 candidates - Hilary Clinton, Bernie Sanders and Donald Trump - from web(https://www.presidency.ucsb.edu). I execute sentiment analysis on the paragraphs that contain the word "trade" and look at how the sentiment varies by presidential candidates.
